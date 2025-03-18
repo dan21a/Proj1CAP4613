@@ -1,23 +1,18 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import os
 from torch.utils.data import DataLoader
 from zip_dataset import ZipDataset
 from train import train, evaluate 
 
-# ------------------ Locally Connected Network (No Shared Weights in First 3 Layers) -------------------
+# ------------------ Locally Connected Layer (Optimized) -------------------
 class LocallyConnectedLayer(nn.Module):
     """
     A locally connected layer where each spatial region has its own independent weights (no shared weights).
+    Optimized for GPU usage.
     """
     def __init__(self, in_channels, out_channels, kernel_size, input_size):
-        """
-        Args:
-            in_channels: Number of input channels
-            out_channels: Number of output channels
-            kernel_size: Size of the local receptive field
-            input_size: Tuple (height, width) of the input image
-        """
         super(LocallyConnectedLayer, self).__init__()
 
         self.in_channels = in_channels
@@ -25,27 +20,33 @@ class LocallyConnectedLayer(nn.Module):
         self.kernel_size = kernel_size
         self.input_size = input_size
 
-        # Calculate the output height and width
+        # Compute output spatial dimensions
         self.output_height = input_size[0] - kernel_size + 1
         self.output_width = input_size[1] - kernel_size + 1
 
-        # Define learnable weights for each spatial position (no sharing)
-        self.weights = nn.Parameter(torch.randn(out_channels, in_channels, self.output_height, self.output_width, kernel_size, kernel_size))
+        # Learnable weights & biases for each spatial position (No Shared Weights)
+        self.weights = nn.Parameter(
+            torch.randn(out_channels, in_channels, self.output_height, self.output_width, kernel_size, kernel_size)
+        )
         self.biases = nn.Parameter(torch.zeros(out_channels, self.output_height, self.output_width))
 
     def forward(self, x):
         batch_size, in_channels, height, width = x.size()
-        output = torch.zeros(batch_size, self.out_channels, self.output_height, self.output_width, device=x.device)
 
-        # Manually apply the local connection (no shared weights)
-        for i in range(self.output_height):
-            for j in range(self.output_width):
-                local_patch = x[:, :, i:i+self.kernel_size, j:j+self.kernel_size]  # Extract local region
-                output[:, :, i, j] = (local_patch.unsqueeze(1) * self.weights[:, :, i, j, :, :]).sum(dim=(2, 3, 4)) + self.biases[:, i, j]
+        # Unfold input to extract patches for matrix multiplication
+        x_patches = x.unfold(2, self.kernel_size, 1).unfold(3, self.kernel_size, 1)  # Shape: (B, C, H, W, k, k)
 
-        return output
+        # Expand dimensions for broadcasting
+        x_patches = x_patches.unsqueeze(1)  # Shape: (B, 1, C, H, W, k, k)
+        weights = self.weights.unsqueeze(0)  # Shape: (1, O, C, H, W, k, k)
+
+        # Element-wise multiplication and summation over patch dimensions
+        output = (x_patches * weights).sum(dim=(2, 5, 6)) + self.biases.unsqueeze(0)
+
+        return output  # Shape: (B, O, H, W)
 
 
+# ------------------ Locally Connected Neural Network -------------------
 class LocallyConnectedNN(nn.Module):
     def __init__(self):
         super(LocallyConnectedNN, self).__init__()
@@ -68,7 +69,7 @@ class LocallyConnectedNN(nn.Module):
         self.fc1 = nn.Linear(64 * 10 * 10, 10)  # 10 output classes
 
     def forward(self, x):
-        x = x.view(-1, 1, 16, 16)  # ✅ Fix input shape
+        x = x.to(next(self.parameters()).device)  # ✅ Ensure input is on the correct device
         x = self.relu(self.batchnorm1(self.local1(x)))
         x = self.relu(self.batchnorm2(self.local2(x)))
         x = self.tanh(self.batchnorm3(self.local3(x)))
@@ -83,13 +84,15 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    train_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_train.txt")
-    test_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_test.txt")
+    train_data = ZipDataset("../zip_train.txt")
+    test_data = ZipDataset("../zip_test.txt")
 
     print("\nTraining Locally Connected NN on GPU...")
-    model_local_nn = LocallyConnectedNN().to(device)
+    model_local_nn = LocallyConnectedNN().to(device)  
 
-    metrics = train(model_local_nn, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=10)
+    
+    metrics = train(model_local_nn, train_data, test_data, batch_size=512, learning_rate=0.005, epochs=10)
+    metrics.plot()
 
     print("\n=== Final Test Evaluation ===")
     avg_loss, accuracy, error_rate = evaluate(model_local_nn, test_data)

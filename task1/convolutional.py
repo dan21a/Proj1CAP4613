@@ -44,8 +44,8 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    train_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_train.txt")
-    test_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_test.txt")
+    train_data = ZipDataset("../zip_train.txt")
+    test_data = ZipDataset("../zip_test.txt")
 
     print("\nTraining Locally Connected CNN With Shared Weights on GPU...")
     model_local_cnn = LocallyConnectedCNN().to(device)

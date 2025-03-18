@@ -1,6 +1,6 @@
 import torch.nn as nn
 from torch import Tensor
-from task1.train import train
+from train import train
 from zip_dataset import ZipDataset
 
 class FullyConnectedNN(nn.Module):
@@ -17,19 +17,20 @@ class FullyConnectedNN(nn.Module):
         # We use relu and sigmoid, as required.
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.relu(self.layer1(x))
+    def forward(self, x):
+        x = x.view(x.size(0), -1)  # Flatten the input correctly
+        x = self.relu(self.layer1(x))  # Ensure layer input matches expected dimensions
         x = self.relu(self.layer2(x))
-        x = self.sigmoid(self.layer3(x))
+        x = self.relu(self.layer3(x))
         x = self.layer4(x)
         return x
 
 
+
 if __name__ == "__main__":
     model = FullyConnectedNN()
-    train_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_train.txt")
-    test_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_test.txt")
+    train_data = ZipDataset("../zip_train.txt")
+    test_data = ZipDataset("../zip_test.txt")
 
     metrics = train(model, train_data, test_data, 32, 0.01)
     metrics.plot()

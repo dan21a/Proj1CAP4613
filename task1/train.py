@@ -29,7 +29,7 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
           epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)  # ✅ Move model to GPU
+    model.to(device)  
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
@@ -40,9 +40,9 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
     for epoch in range(epochs):
         total_loss = 0.0
         for data, labels in loader:
-            data, labels = data.to(device), labels.to(device)  # ✅ Move data to GPU
+            data, labels = data.to(device), labels.to(device) 
             optimizer.zero_grad()
-            output = model(data.view(-1, 1, 16, 16))  # ✅ Fix input shape
+            output = model(data.view(-1, 1, 16, 16))  
             loss = criterion(output, labels)
             loss.backward()
             optimizer.step()
@@ -76,8 +76,8 @@ def evaluate(model: nn.Module, test_data: ZipDataset):
 
     with torch.no_grad():
         for data, label in test_loader:
-            data, label = data.to(device), label.to(device)  # ✅ Move data to GPU
-            output = model(data.view(-1, 1, 16, 16))  # ✅ Fix input shape
+            data, label = data.to(device), label.to(device)  
+            output = model(data.view(-1, 1, 16, 16))  
             loss = criterion(output, label)
             total_loss += loss.item()
 
