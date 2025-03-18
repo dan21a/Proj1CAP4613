@@ -17,14 +17,14 @@ class FullyConnectedNN(nn.Module):
         # We use relu and sigmoid, as required.
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
+
     def forward(self, x):
         x = x.view(x.size(0), -1)  # Flatten the input correctly
         x = self.relu(self.layer1(x))  # Ensure layer input matches expected dimensions
         x = self.relu(self.layer2(x))
-        x = self.relu(self.layer3(x))
+        x = self.sigmoid(self.layer3(x))
         x = self.layer4(x)
         return x
-
 
 
 if __name__ == "__main__":

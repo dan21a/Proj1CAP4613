@@ -4,7 +4,7 @@ import torch.optim as optim
 import os
 from torch.utils.data import DataLoader
 from zip_dataset import ZipDataset
-from train import train, evaluate 
+from train import train, evaluate, get_gpu 
 
 # ------------------ Locally Connected Layer (Optimized) -------------------
 class LocallyConnectedLayer(nn.Module):
@@ -81,7 +81,7 @@ class LocallyConnectedNN(nn.Module):
 
 # ------------------ Run Training on GPU -------------------
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_gpu()
     print(f"Using device: {device}")
 
     train_data = ZipDataset("../zip_train.txt")

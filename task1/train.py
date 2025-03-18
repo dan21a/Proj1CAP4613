@@ -1,9 +1,17 @@
 import matplotlib.pyplot as plt
 import torch
+from torch.mps import is_available
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from zip_dataset import ZipDataset
+
+def get_gpu() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 class TrainingMetrics:
     """Stores metrics per epoch during training. Can then plot the metrics."""
@@ -27,10 +35,9 @@ class TrainingMetrics:
 
 def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
           epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_gpu()
     model.to(device)  
-    
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
 
@@ -65,7 +72,7 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
 
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_gpu()
     model.eval()
 
     criterion = nn.CrossEntropyLoss()
