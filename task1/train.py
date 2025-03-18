@@ -10,8 +10,6 @@ class TrainingMetrics:
 
     def __init__(self) -> None:
         self.epochs = 0
-
-        # Team: If you can think of any other metrics, feel free to add.
         self.loss = []
 
     def add_epoch(self, loss: float) -> None:
@@ -29,18 +27,22 @@ class TrainingMetrics:
 
 def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
           epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)  # ✅ Move model to GPU
+    
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
 
     loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-
     metrics = TrainingMetrics()
 
     for epoch in range(epochs):
         total_loss = 0.0
         for data, labels in loader:
+            data, labels = data.to(device), labels.to(device)  # ✅ Move data to GPU
             optimizer.zero_grad()
-            output = model(data)
+            output = model(data.view(-1, 1, 16, 16))  # ✅ Fix input shape
             loss = criterion(output, labels)
             loss.backward()
             optimizer.step()
@@ -49,7 +51,7 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
 
         metrics.add_epoch(total_loss / len(train_data))
 
-        if epoch % (epochs // 10) == 0:
+        if epoch % max(epochs // 10, 1) == 0:
             print(f"Training {model.__class__.__name__} model: {epoch}/{epochs} epochs")
 
             avg_loss, accuracy, error_rate = evaluate(model, test_data)
@@ -63,16 +65,19 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
 
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
 
     criterion = nn.CrossEntropyLoss()
-
     num_correct = 0
     total_loss = 0.0
 
+    test_loader = DataLoader(test_data, batch_size=1, shuffle=False)
+
     with torch.no_grad():
-        for data, label in test_data:
-            output = model(data)
+        for data, label in test_loader:
+            data, label = data.to(device), label.to(device)  # ✅ Move data to GPU
+            output = model(data.view(-1, 1, 16, 16))  # ✅ Fix input shape
             loss = criterion(output, label)
             total_loss += loss.item()
 
@@ -84,6 +89,4 @@ def evaluate(model: nn.Module, test_data: ZipDataset):
     error_rate = 100 - accuracy
 
     model.train()
-
     return avg_loss, accuracy, error_rate
-

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from train import train
 from zip_dataset import ZipDataset
 
@@ -22,17 +23,13 @@ class LocallyConnected2D(nn.Module):
         output_width = width - self.kernel_size + 1
 
         # Initialize the output
-        output = torch.zeros(batch_size, self.out_channels, output_height, output_width).to(x.device)
+        output = torch.zeros(batch_size, self.out_channels, output_height, output_width, device=x.device)
 
-        # Perform the locally connected operation: sliding the kernel over the input
+        # Vectorized locally connected operation
         for i in range(output_height):
             for j in range(output_width):
-                # Extract the local patch for each sliding window
                 local_patch = x[:, :, i:i+self.kernel_size, j:j+self.kernel_size]
-
-                # Apply the weights (no shared weights) for each kernel in the local neighborhood
-                for k in range(self.out_channels):
-                    output[:, k, i, j] = (local_patch * self.weights[k]).sum(dim=(1, 2, 3))
+                output[:, :, i, j] = (local_patch.unsqueeze(1) * self.weights).sum(dim=(2, 3, 4))
 
         return output
 
@@ -40,37 +37,45 @@ class LocallyConnectedNN(nn.Module):
     def __init__(self):
         super(LocallyConnectedNN, self).__init__()
 
-        self.layer1 = LocallyConnected2D(1, 32, 3)
-        self.layer2 = LocallyConnected2D(32, 64, 2)
-        self.layer3 = LocallyConnected2D(64, 128, 1)
-        # Fully connected layer for final output
-        self.layer4 = nn.Linear(128 * 13 * 13, 10)  # Flattening the output to 10 classes
-
+        self.layer1 = LocallyConnected2D(1, 16, 3)  # Reduce filters to speed up
+        self.layer2 = LocallyConnected2D(16, 32, 2)
+        self.layer3 = LocallyConnected2D(32, 64, 1)
+        self.layer4 = nn.Linear(64 * 13 * 13, 10)
+        
+        self.batchnorm1 = nn.BatchNorm2d(16)
+        self.batchnorm2 = nn.BatchNorm2d(32)
+        self.batchnorm3 = nn.BatchNorm2d(64)
+        
         self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
-
-
+        self.dropout = nn.Dropout(0.5)  # Helps prevent overfitting
+    
     def forward(self, x):
-        # Reshape the input to (batch_size, 1, 16, 16)
         x = x.view(x.size(0), 1, 16, 16)
-
-        # Apply locally connected layers
-        x = self.relu(self.layer1(x))
-        x = self.relu(self.layer2(x))
-        x = self.sigmoid(self.layer3(x))
-
-        # Flatten the output from the last layer and pass through the fully connected layer
+        x = self.relu(self.batchnorm1(self.layer1(x)))
+        x = self.relu(self.batchnorm2(self.layer2(x)))
+        x = self.relu(self.batchnorm3(self.layer3(x)))
+        
         x = x.view(x.size(0), -1)
+        x = self.dropout(x)
         x = self.layer4(x)
 
         return x
 
-
 if __name__ == "__main__":
-    model = LocallyConnectedNN()
-    train_data = ZipDataset("../zip_train.txt")
-    test_data = ZipDataset("../zip_test.txt")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    model = LocallyConnectedNN().to(device)
+    train_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_train.txt")
+    test_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_test.txt")
 
-    metrics = train(model, train_data, test_data, 32, 0.01, 10)
+    # Train model
+    metrics = train(model, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=5)
     metrics.plot()
+
+    # Explicitly run testing after training finishes
+    from train import evaluate  # Ensure you import this function
+
+    print("\n=== Running Final Test Evaluation ===")
+    avg_loss, accuracy, error_rate = evaluate(model, test_data)
+    print(f"Final Test Results -> Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
 

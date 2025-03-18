@@ -1,6 +1,6 @@
 import torch.nn as nn
 from torch import Tensor
-from train import train
+from task1.train import train
 from zip_dataset import ZipDataset
 
 class FullyConnectedNN(nn.Module):
@@ -28,8 +28,8 @@ class FullyConnectedNN(nn.Module):
 
 if __name__ == "__main__":
     model = FullyConnectedNN()
-    train_data = ZipDataset("../zip_train.txt")
-    test_data = ZipDataset("../zip_test.txt")
+    train_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_train.txt")
+    test_data = ZipDataset(r"C:\Users\niebl\Downloads\zip_test.txt")
 
     metrics = train(model, train_data, test_data, 32, 0.01)
     metrics.plot()
