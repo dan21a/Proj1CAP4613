@@ -89,7 +89,6 @@ if __name__ == "__main__":
 
     print("\nTraining Locally Connected NN on GPU...")
     model_local_nn = LocallyConnectedNN().to(device)  
-
     
     metrics = train(model_local_nn, train_data, test_data, batch_size=512, learning_rate=0.005, epochs=10)
     metrics.plot()

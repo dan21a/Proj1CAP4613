@@ -70,6 +70,69 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
 
     return metrics
 
+def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
+        epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
+    device = get_gpu()
+    model1.to(device)  
+    model2.to(device)  
+    model3.to(device)  
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer1 = optim.SGD(model1.parameters(), lr=learning_rate, momentum=momentum)
+    optimizer2 = optim.SGD(model2.parameters(), lr=learning_rate, momentum=momentum)
+    optimizer3 = optim.SGD(model3.parameters(), lr=learning_rate, momentum=momentum)
+
+    loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    metrics1 = TrainingMetrics()
+    metrics2 = TrainingMetrics()
+    metrics3 = TrainingMetrics()
+
+    for epoch in range(epochs):
+        total_loss1 = 0.0
+        total_loss2 = 0.0
+        total_loss3 = 0.0
+        for data, labels in loader:
+            data, labels = data.to(device), labels.to(device) 
+            optimizer1.zero_grad()
+            optimizer2.zero_grad()
+            optimizer3.zero_grad()
+            output1 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
+            output2 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
+            output3 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
+            loss1 = criterion(output1, labels)
+            loss2 = criterion(output2, labels)
+            loss3 = criterion(output3, labels)
+            loss1.backward()
+            loss2.backward()
+            loss3.backward()
+            optimizer1.step()
+            optimizer2.step()
+            optimizer3.step()
+            total_loss1 += loss1.item() * batch_size
+            total_loss2 += loss2.item() * batch_size
+            total_loss3 += loss3.item() * batch_size
+
+        metrics1.add_epoch(total_loss1 / len(train_data))
+        metrics2.add_epoch(total_loss2 / len(train_data))
+        metrics3.add_epoch(total_loss3 / len(train_data))
+
+        if epoch % max(epochs // 10, 1) == 0:
+            print(f"Training: {epoch}/{epochs} epochs")
+            avg_loss, accuracy, error_rate = evaluate(model1, test_data)
+            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            avg_loss, accuracy, error_rate = evaluate(model2, test_data)
+            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            avg_loss, accuracy, error_rate = evaluate(model3, test_data)
+            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+
+    print(f"Training finished.")
+    avg_loss, accuracy, error_rate = evaluate(model1, test_data)
+    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    avg_loss, accuracy, error_rate = evaluate(model2, test_data)
+    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    avg_loss, accuracy, error_rate = evaluate(model3, test_data)
+    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    return metrics1, metrics2, metrics3
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
     device = get_gpu()

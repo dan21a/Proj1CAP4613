@@ -56,4 +56,3 @@ if __name__ == "__main__":
     print("\n=== Final Test Evaluation ===")
     avg_loss, accuracy, error_rate = evaluate(model_local_cnn, test_data)
     print(f"Locally Connected CNN -> Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
-
