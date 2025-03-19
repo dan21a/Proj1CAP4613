@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from zip_dataset import ZipDataset
+import copy
 
 def get_gpu() -> torch.device:
     if torch.cuda.is_available():
@@ -83,18 +84,22 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     optimizer3 = optim.SGD(model3.parameters(), lr=learning_rate, momentum=momentum)
 
     loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    metrics = TrainingMetrics()
+    metrics1 = TrainingMetrics()
+    metrics2 = TrainingMetrics()
+    metrics3 = TrainingMetrics()
 
     for epoch in range(epochs):
-        total_loss = 0.0
+        total_loss1 = 0.0
+        total_loss2 = 0.0
+        total_loss3 = 0.0
         for data, labels in loader:
             data, labels = data.to(device), labels.to(device) 
             optimizer1.zero_grad()
             optimizer2.zero_grad()
             optimizer3.zero_grad()
             output1 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
-            output2 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
-            output3 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
+            output2 = copy.copy(output1)
+            output3 = copy.copy(output1)
             loss1 = criterion(output1, labels)
             loss2 = criterion(output2, labels)
             loss3 = criterion(output3, labels)
@@ -104,9 +109,13 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
             optimizer1.step()
             optimizer2.step()
             optimizer3.step()
-            total_loss += loss1.item() * batch_size
+            total_loss1 += criterion(model1(data.view(-1, 1, 16, 16)), labels).item() * batch_size
+            total_loss2 += criterion(model2(data.view(-1, 1, 16, 16)), labels).item() * batch_size
+            total_loss3 += criterion(model3(data.view(-1, 1, 16, 16)), labels).item() * batch_size
 
-        metrics.add_epoch(total_loss / len(train_data))
+        metrics1.add_epoch(total_loss1 / len(train_data))
+        metrics2.add_epoch(total_loss2 / len(train_data))
+        metrics3.add_epoch(total_loss3 / len(train_data))
 
         if epoch % max(epochs // 10, 1) == 0:
             print(f"Training: {epoch}/{epochs} epochs")
@@ -124,7 +133,7 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     avg_loss, accuracy, error_rate = evaluate(model3, test_data)
     print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
-    return metrics
+    return metrics1, metrics2, metrics3
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
     device = get_gpu()
