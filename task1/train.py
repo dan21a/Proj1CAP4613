@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from zip_dataset import ZipDataset
 import copy
+from typing import List
 
 def get_gpu() -> torch.device:
     if torch.cuda.is_available():
@@ -72,11 +73,13 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
     return metrics
 
 def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
-        epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
+        epochsArray: List[int] = [500,150,150], momentum: float = 0) -> TrainingMetrics:
     device = get_gpu()
     model1.to(device)
     model2.to(device)
     model3.to(device)
+
+    epochs = max(epochsArray)
 
     criterion = nn.CrossEntropyLoss()
     optimizer1 = optim.SGD(model1.parameters(), lr=learning_rate, momentum=momentum)
@@ -96,53 +99,62 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
         total_loss4 = 0.0
         for data, labels in loader:
             data, labels = data.to(device), labels.to(device) 
-            optimizer1.zero_grad()
-            optimizer2.zero_grad()
-            optimizer3.zero_grad()
             output1 = model1(data.view(-1, 1, 16, 16))
             output2 = model2(data.view(-1, 1, 16, 16))
             output3 = model3(data.view(-1, 1, 16, 16))
             output4 = (output1 + output2 + output3) / 3
-            loss1 = criterion(output1, labels)
-            loss2 = criterion(output2, labels)
-            loss3 = criterion(output3, labels)
+            if epoch < epochsArray[0]:
+                optimizer1.zero_grad()
+                loss1 = criterion(output1, labels)
+                loss1.backward()
+                optimizer1.step()
+                total_loss1 += loss1.item() * batch_size
+            if epoch < epochsArray[1]:
+                optimizer2.zero_grad()
+                loss2 = criterion(output2, labels)
+                loss2.backward()
+                optimizer2.step()
+                total_loss2 += loss2.item() * batch_size
+            if epoch < epochsArray[2]:
+                optimizer3.zero_grad()
+                loss3 = criterion(output3, labels)
+                loss3.backward()
+                optimizer3.step()
+                total_loss3 += loss3.item() * batch_size
             loss4 = criterion(output4, labels)
-            loss1.backward()
-            loss2.backward()
-            loss3.backward()
-            optimizer1.step()
-            optimizer2.step()
-            optimizer3.step()
-            total_loss1 += loss1.item() * batch_size
-            total_loss2 += loss2.item() * batch_size
-            total_loss3 += loss3.item() * batch_size
             total_loss4 += loss4.item() * batch_size
 
-        metrics1.add_epoch(total_loss1 / len(train_data))
-        metrics2.add_epoch(total_loss2 / len(train_data))
-        metrics3.add_epoch(total_loss3 / len(train_data))
+        if epoch < epochsArray[0]:
+            metrics1.add_epoch(total_loss1 / len(train_data))
+        if epoch < epochsArray[1]:
+            metrics2.add_epoch(total_loss2 / len(train_data))
+        if epoch < epochsArray[2]:
+            metrics3.add_epoch(total_loss3 / len(train_data))
         metrics4.add_epoch(total_loss4 / len(train_data))
 
         if epoch % max(epochs // 10, 1) == 0:
             print(f"Training: {epoch}/{epochs} epochs")
-            avg_loss, accuracy, error_rate = evaluate(model1, test_data)
-            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
-            avg_loss, accuracy, error_rate = evaluate(model2, test_data)
-            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
-            avg_loss, accuracy, error_rate = evaluate(model3, test_data)
-            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            if epoch < epochsArray[0]:
+                avg_loss, accuracy, error_rate = evaluate(model1, test_data)
+                print(f"Model 1 Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            if epoch < epochsArray[1]:
+                avg_loss, accuracy, error_rate = evaluate(model2, test_data)
+                print(f"Model 2 Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            if epoch < epochsArray[2]:
+                avg_loss, accuracy, error_rate = evaluate(model3, test_data)
+                print(f"Model 3 Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
             avg_loss, accuracy, error_rate = evaluateEnsemble(model1,model2,model3, test_data)
-            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            print(f"Ensemble Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
 
     print(f"Training finished.")
     avg_loss, accuracy, error_rate = evaluate(model1, test_data)
-    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    print(f"Model 1 Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     avg_loss, accuracy, error_rate = evaluate(model2, test_data)
-    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    print(f"Model 2 Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     avg_loss, accuracy, error_rate = evaluate(model3, test_data)
-    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    print(f"Model 3 Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     avg_loss, accuracy, error_rate = evaluateEnsemble(model1,model2,model3, test_data)
-    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    print(f"Ensemble Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     return metrics1, metrics2, metrics3, metrics4
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
