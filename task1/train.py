@@ -30,7 +30,7 @@ class TrainingMetrics:
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title("Loss During Training")
-        plt.show()
+        plt.show(block=False)
 
 
 def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
