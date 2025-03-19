@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 
 class ZipDataset(Dataset):
     """
-    Given a file_path to a normalized handritten digit dataset in gzip
+    Given a file_path to a normalized handwritten digit dataset in gzip
     format, creates a PyTorch DataSet from it. Each sample is a 256 long
     PyTorch float tensor representing the 16x16 image. 
     """
