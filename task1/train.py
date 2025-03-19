@@ -36,7 +36,7 @@ class TrainingMetrics:
 
 
 def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
-        epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
+          epochs: int = 500, momentum: float = 0.9) -> TrainingMetrics:
     device = get_gpu()
     model.to(device)  
 

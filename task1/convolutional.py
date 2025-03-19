@@ -50,7 +50,7 @@ if __name__ == "__main__":
     print("\nTraining Locally Connected CNN With Shared Weights on GPU...")
     model_local_cnn = LocallyConnectedCNN().to(device)
 
-    metrics = train(model_local_cnn, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=10)
+    metrics = train(model_local_cnn, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=200)
     metrics.plot() 
 
     print("\n=== Final Test Evaluation ===")
