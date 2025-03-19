@@ -83,14 +83,10 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     optimizer3 = optim.SGD(model3.parameters(), lr=learning_rate, momentum=momentum)
 
     loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    metrics1 = TrainingMetrics()
-    metrics2 = TrainingMetrics()
-    metrics3 = TrainingMetrics()
+    metrics = TrainingMetrics()
 
     for epoch in range(epochs):
-        total_loss1 = 0.0
-        total_loss2 = 0.0
-        total_loss3 = 0.0
+        total_loss = 0.0
         for data, labels in loader:
             data, labels = data.to(device), labels.to(device) 
             optimizer1.zero_grad()
@@ -108,13 +104,9 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
             optimizer1.step()
             optimizer2.step()
             optimizer3.step()
-            total_loss1 += loss1.item() * batch_size
-            total_loss2 += loss2.item() * batch_size
-            total_loss3 += loss3.item() * batch_size
+            total_loss += loss1.item() * batch_size
 
-        metrics1.add_epoch(total_loss1 / len(train_data))
-        metrics2.add_epoch(total_loss2 / len(train_data))
-        metrics3.add_epoch(total_loss3 / len(train_data))
+        metrics.add_epoch(total_loss / len(train_data))
 
         if epoch % max(epochs // 10, 1) == 0:
             print(f"Training: {epoch}/{epochs} epochs")
@@ -132,7 +124,7 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     avg_loss, accuracy, error_rate = evaluate(model3, test_data)
     print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
-    return metrics1, metrics2, metrics3
+    return metrics
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
     device = get_gpu()
