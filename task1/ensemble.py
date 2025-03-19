@@ -22,10 +22,11 @@ def ensemble(train_data: ZipDataset, test_data: ZipDataset) -> None:
     model1 = FullyConnectedNN().to(device)
     model2 = LocallyConnectedCNN().to(device)
     model3 = LocallyConnectedNN().to(device)
-    metrics1, metrics2, metrics3=trainEnsemble(model1, model2, model3, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=150)
+    metrics1, metrics2, metrics3, metrics4=trainEnsemble(model1, model2, model3, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=150)
     metrics1.plot()
     metrics2.plot()
     metrics3.plot()
+    metrics4.plot()
 if __name__ == "__main__":
     device = get_gpu()
     print(f"Using device: {device}")

@@ -74,9 +74,9 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
 def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
         epochs: int = 500, momentum: float = 0) -> TrainingMetrics:
     device = get_gpu()
-    model1.to(device)  
-    model2.to(device)  
-    model3.to(device)  
+    model1.to(device)
+    model2.to(device)
+    model3.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer1 = optim.SGD(model1.parameters(), lr=learning_rate, momentum=momentum)
@@ -87,35 +87,41 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     metrics1 = TrainingMetrics()
     metrics2 = TrainingMetrics()
     metrics3 = TrainingMetrics()
+    metrics4 = TrainingMetrics()
 
     for epoch in range(epochs):
         total_loss1 = 0.0
         total_loss2 = 0.0
         total_loss3 = 0.0
+        total_loss4 = 0.0
         for data, labels in loader:
             data, labels = data.to(device), labels.to(device) 
             optimizer1.zero_grad()
             optimizer2.zero_grad()
             optimizer3.zero_grad()
-            output1 = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
-            output2 = copy.copy(output1)
-            output3 = copy.copy(output1)
+            output1 = model1(data.view(-1, 1, 16, 16))
+            output2 = model2(data.view(-1, 1, 16, 16))
+            output3 = model3(data.view(-1, 1, 16, 16))
+            output4 = (output1 + output2 + output3) / 3
             loss1 = criterion(output1, labels)
             loss2 = criterion(output2, labels)
             loss3 = criterion(output3, labels)
+            loss4 = criterion(output4, labels)
             loss1.backward()
             loss2.backward()
             loss3.backward()
             optimizer1.step()
             optimizer2.step()
             optimizer3.step()
-            total_loss1 += criterion(model1(data.view(-1, 1, 16, 16)), labels).item() * batch_size
-            total_loss2 += criterion(model2(data.view(-1, 1, 16, 16)), labels).item() * batch_size
-            total_loss3 += criterion(model3(data.view(-1, 1, 16, 16)), labels).item() * batch_size
+            total_loss1 += loss1.item() * batch_size
+            total_loss2 += loss2.item() * batch_size
+            total_loss3 += loss3.item() * batch_size
+            total_loss4 += loss4.item() * batch_size
 
         metrics1.add_epoch(total_loss1 / len(train_data))
         metrics2.add_epoch(total_loss2 / len(train_data))
         metrics3.add_epoch(total_loss3 / len(train_data))
+        metrics4.add_epoch(total_loss4 / len(train_data))
 
         if epoch % max(epochs // 10, 1) == 0:
             print(f"Training: {epoch}/{epochs} epochs")
@@ -125,6 +131,8 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
             print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
             avg_loss, accuracy, error_rate = evaluate(model3, test_data)
             print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+            avg_loss, accuracy, error_rate = evaluateEnsemble(model1,model2,model3, test_data)
+            print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
 
     print(f"Training finished.")
     avg_loss, accuracy, error_rate = evaluate(model1, test_data)
@@ -133,7 +141,9 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     avg_loss, accuracy, error_rate = evaluate(model3, test_data)
     print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
-    return metrics1, metrics2, metrics3
+    avg_loss, accuracy, error_rate = evaluateEnsemble(model1,model2,model3, test_data)
+    print(f"Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
+    return metrics1, metrics2, metrics3, metrics4
 
 def evaluate(model: nn.Module, test_data: ZipDataset):
     device = get_gpu()
@@ -160,4 +170,35 @@ def evaluate(model: nn.Module, test_data: ZipDataset):
     error_rate = 100 - accuracy
 
     model.train()
+    return avg_loss, accuracy, error_rate
+
+def evaluateEnsemble(model1: nn.Module,model2: nn.Module,model3: nn.Module, test_data: ZipDataset):
+    device = get_gpu()
+    model1.eval()
+    model2.eval()
+    model3.eval()
+
+    criterion = nn.CrossEntropyLoss()
+    num_correct = 0
+    total_loss = 0.0
+
+    test_loader = DataLoader(test_data, batch_size=1, shuffle=False)
+
+    with torch.no_grad():
+        for data, label in test_loader:
+            data, label = data.to(device), label.to(device)  
+            output = (model1(data.view(-1, 1, 16, 16))+model2(data.view(-1, 1, 16, 16))+model3(data.view(-1, 1, 16, 16)))/3
+            loss = criterion(output, label)
+            total_loss += loss.item()
+
+            predicted_label = torch.argmax(output)
+            num_correct += (label == predicted_label).item()
+
+    avg_loss = total_loss / len(test_data)
+    accuracy = 100 * num_correct / len(test_data)
+    error_rate = 100 - accuracy
+
+    model1.train()
+    model2.train()
+    model3.train()
     return avg_loss, accuracy, error_rate
