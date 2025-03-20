@@ -7,8 +7,8 @@ from train import train, get_gpu, trainEnsemble
 from zip_dataset import ZipDataset
 
 def fully_connected(train_data: ZipDataset, test_data: ZipDataset) -> None:
-    model = FullyConnectedNN().to(device)
-    train(model, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=150).plot()
+    model = FullyConnectedNN(dropoutRate=0.25).to(device)
+    train(model, train_data, test_data, batch_size=128, learning_rate=0.005, momentum=0.9, epochs=150).plot()
 
 def convolutional(train_data: ZipDataset, test_data: ZipDataset) -> None:
     model = LocallyConnectedCNN().to(device)
@@ -19,10 +19,10 @@ def locally_connected(train_data: ZipDataset, test_data: ZipDataset) -> None:
     train(model, train_data, test_data, batch_size=128, learning_rate=0.005, epochs=150).plot()
 
 def ensemble(train_data: ZipDataset, test_data: ZipDataset) -> None:
-    model1 = FullyConnectedNN().to(device)
+    model1 = FullyConnectedNN(dropoutRate=0.25).to(device)
     model2 = LocallyConnectedCNN().to(device)
     model3 = LocallyConnectedNN().to(device)
-    metrics1, metrics2, metrics3, metrics4=trainEnsemble(model1, model2, model3, train_data, test_data, batch_size=128, learning_rate=0.005, epochsArray=[500,150,150])
+    metrics1, metrics2, metrics3, metrics4=trainEnsemble(model1, model2, model3, train_data, test_data, batch_size=128, learning_rate=0.005, momentum=0.9, epochsArray=[500,150,150])
     metrics1.plot()
     metrics2.plot()
     metrics3.plot()

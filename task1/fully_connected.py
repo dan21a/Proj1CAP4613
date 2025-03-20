@@ -4,7 +4,7 @@ from train import train
 from zip_dataset import ZipDataset
 
 class FullyConnectedNN(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, dropoutRate) -> None:
         super(FullyConnectedNN, self).__init__()
 
         # We have four layers, as required.
@@ -13,16 +13,18 @@ class FullyConnectedNN(nn.Module):
         self.layer2 = nn.Linear(128, 64)
         self.layer3 = nn.Linear(64, 32)
         self.layer4 = nn.Linear(32, 10)
-
         # We use relu and sigmoid, as required.
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
-
+        self.dropout = nn.Dropout(dropoutRate)
     def forward(self, x):
         x = x.view(x.size(0), -1)  # Flatten the input correctly
         x = self.relu(self.layer1(x))  # Ensure layer input matches expected dimensions
+        x = self.dropout(x)
         x = self.relu(self.layer2(x))
+        x = self.dropout(x)
         x = self.sigmoid(self.layer3(x))
+        x = self.dropout(x)
         x = self.layer4(x)
         return x
 
