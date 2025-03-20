@@ -1,10 +1,9 @@
 import torch.nn as nn
-from torch import Tensor
 from train import train
 from zip_dataset import ZipDataset
 
 class FullyConnectedNN(nn.Module):
-    def __init__(self, dropoutRate) -> None:
+    def __init__(self, dropoutRate=0.0) -> None:
         super(FullyConnectedNN, self).__init__()
 
         # We have four layers, as required.
@@ -17,6 +16,7 @@ class FullyConnectedNN(nn.Module):
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         self.dropout = nn.Dropout(dropoutRate)
+
     def forward(self, x):
         x = x.view(x.size(0), -1)  # Flatten the input correctly
         x = self.relu(self.layer1(x))  # Ensure layer input matches expected dimensions
@@ -31,8 +31,8 @@ class FullyConnectedNN(nn.Module):
 
 if __name__ == "__main__":
     model = FullyConnectedNN()
-    train_data = ZipDataset("../zip_train.txt")
-    test_data = ZipDataset("../zip_test.txt")
+    train_data = ZipDataset("zip_train.txt")
+    test_data = ZipDataset("zip_test.txt")
 
     metrics = train(model, train_data, test_data, 32, 0.01)
     metrics.plot()

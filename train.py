@@ -1,11 +1,9 @@
 import matplotlib.pyplot as plt
 import torch
-from torch.mps import is_available
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from zip_dataset import ZipDataset
-import copy
 from typing import List
 
 def get_gpu() -> torch.device:
@@ -14,6 +12,7 @@ def get_gpu() -> torch.device:
     if torch.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
+
 
 class TrainingMetrics:
     """Stores metrics per epoch during training. Can then plot the metrics."""
@@ -72,8 +71,10 @@ def train(model: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch
 
     return metrics
 
-def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train_data: ZipDataset, test_data: ZipDataset, batch_size: int, learning_rate: float, \
-        epochsArray: List[int] = [500,150,150], momentum: float = 0) -> TrainingMetrics:
+
+def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train_data: ZipDataset, \
+                  test_data: ZipDataset, batch_size: int, learning_rate: float, \
+                  epochsArray: List[int] = [500,150,150], momentum: float = 0):
     device = get_gpu()
     model1.to(device)
     model2.to(device)
@@ -157,6 +158,7 @@ def trainEnsemble(model1: nn.Module, model2: nn.Module, model3: nn.Module, train
     print(f"Ensemble Avg. Loss: {avg_loss:.5}, Accuracy: {accuracy:.5}%, Error Rate: {error_rate:.5}%")
     return metrics1, metrics2, metrics3, metrics4
 
+
 def evaluate(model: nn.Module, test_data: ZipDataset):
     device = get_gpu()
     model.eval()
@@ -183,6 +185,7 @@ def evaluate(model: nn.Module, test_data: ZipDataset):
 
     model.train()
     return avg_loss, accuracy, error_rate
+
 
 def evaluateEnsemble(model1: nn.Module,model2: nn.Module,model3: nn.Module, test_data: ZipDataset):
     device = get_gpu()
@@ -214,3 +217,4 @@ def evaluateEnsemble(model1: nn.Module,model2: nn.Module,model3: nn.Module, test
     model2.train()
     model3.train()
     return avg_loss, accuracy, error_rate
+
